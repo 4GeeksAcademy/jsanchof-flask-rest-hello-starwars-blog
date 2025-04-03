@@ -57,7 +57,7 @@ class Planet(db.Model):
             "url": self.url,
         }
 
-class Character(db.Model):
+class People(db.Model):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     uid: Mapped[int] = mapped_column(Integer, unique=True, nullable=False)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
@@ -67,11 +67,11 @@ class Character(db.Model):
     height: Mapped[int] = mapped_column(Integer)
     eye_color: Mapped[str] = mapped_column(String(50))
     mass: Mapped[int] = mapped_column(Integer)
-    homeworld: Mapped[str] = mapped_column(String(200))
+    homeworld_id: Mapped[int] = mapped_column(Integer, ForeignKey('planet.id'), nullable=True)
     birth_year: Mapped[str] = mapped_column(String(20))
     url: Mapped[str] = mapped_column(String(200), nullable=False)
     #relationships
-    homeworld: Mapped["Planet"] = relationship("Planet")
+    homeworld: Mapped["Planet"] = relationship("Planet", backref="inhabitants")
 
     def serialize(self):
         return {
@@ -84,7 +84,7 @@ class Character(db.Model):
             "height": self.height,
             "eye_color": self.eye_color,
             "mass": self.mass,
-            "homeworld": self.homeworld,
+            "homeworld": self.homeworld_id,
             "birth_year": self.birth_year,
             "url": self.url,
         }

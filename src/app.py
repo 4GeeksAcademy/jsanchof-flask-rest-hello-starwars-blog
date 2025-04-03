@@ -8,7 +8,7 @@ from flask_swagger import swagger
 from flask_cors import CORS
 from utils import APIException, generate_sitemap
 from admin import setup_admin
-from models import db, User
+from models import db, User, People, Planet
 #from models import Person
 
 app = Flask(__name__)
@@ -36,15 +36,59 @@ def handle_invalid_usage(error):
 def sitemap():
     return generate_sitemap(app)
 
-@app.route('/user', methods=['GET'])
-def handle_hello():
+@app.route('/users', methods=['GET'])
+def get_all_users():
+    try:
+        users = User.query.all()  
+        users_list = [user.serialize() for user in users] 
+        
+        return jsonify(users_list), 200
+    
+    except Exception as e:
+        return jsonify({"error": "Internal Server Error", "message": str(e)}), 500
+    
+#people Endpoints
+@app.route('/people', methods=['GET'])
+def get_all_people():
+    people = People.query.all()
+    people_list = [character.serialize() for character in people] 
+    return jsonify(people_list), 200 
 
-    response_body = {
-        "msg": "Hello, this is your GET /user response "
-    }
+@app.route('/people/<int:people_id>', methods=['GET'])
+def get_person_by_id(people_id):
+    try:
+        person = People.query.get(people_id) 
+        if person is None:
+            return jsonify({"error": "Character not found"}), 404
 
-    return jsonify(response_body), 200
+        return jsonify(person.serialize()), 200 
+    
+    except Exception as e:
+        return jsonify({"error": "Internal Server Error", "message": str(e)}), 500
 
+#Planet Endpoints
+
+@app.route('/planets', methods=['GET'])
+def get_all_planets():
+    try:
+        planets = Planet.query.all()  # Ensure the correct model name
+        planets_list = [planet.serialize() for planet in planets]  # Correct variable name
+        return jsonify(planets_list), 200
+    except Exception as e:
+        return jsonify({"error": "Internal Server Error", "message": str(e)}), 500
+
+@app.route('/planets/<int:planet_id>', methods=['GET']) 
+def get_planet_by_id(planet_id): 
+    try:
+        planet= Planet.query.get(planet_id)  
+        if planet is None: 
+            return jsonify({"error": "Planet not found"}), 404 
+
+        return jsonify(planet.serialize()), 200  
+    
+    except Exception as e:
+        return jsonify({"error": "Internal Server Error", "message": str(e)}), 500
+    
 # this only runs if `$ python src/app.py` is executed
 if __name__ == '__main__':
     PORT = int(os.environ.get('PORT', 3000))
