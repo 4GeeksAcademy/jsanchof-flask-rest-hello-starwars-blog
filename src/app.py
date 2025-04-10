@@ -8,7 +8,7 @@ from flask_swagger import swagger
 from flask_cors import CORS
 from utils import APIException, generate_sitemap
 from admin import setup_admin
-from models import db, User, People, Planet, Favorite
+from models import db, User, People, Planet, favorites
 #from models import Person
 
 app = Flask(__name__)
@@ -289,113 +289,65 @@ def delete_person(people_id):
 
     
 #favorites endpoints
-@app.route('/favorite', methods=['GET']) 
-def get_all_favorites(): 
-    try:
-        favorites = Favorite.query.all()
-        favorites_list = [favorite.serialize() for favorite in favorites] 
-        
-        return jsonify(favorites_list), 200
+
+@app.route('/users/<int:user_id>/favorites', methods=['GET'])
+def get_user_favorites(user_id):
+    user = db.session.get(User, user_id)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    return jsonify([{
+        "favorite_id": f.favorite_id,
+        "favorite_type": f.favorite_type
+    } for f in user.favorites]), 200
+
+
+@app.route('/users/<int:user_id>/favorites', methods=['POST'])
+def add_favorite(user_id):
+    user = db.session.get(User, user_id)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+
+    data = request.get_json()
+    favorite_id = data.get('favorite_id')
+    favorite_type = data.get('favorite_type')
+
+    if not favorite_id or not favorite_type:
+        return jsonify({"error": "Missing favorite_id or favorite_type"}), 400
+
+    insert_stmt = favorites.insert().values(
+        user_id=user_id,
+        favorite_id=favorite_id,
+        favorite_type=favorite_type
+    )
+    db.session.execute(insert_stmt)
+    db.session.commit()
     
-    except Exception as e:
-        return jsonify({"error": "Internal Server Error", "message": str(e)}), 500
-    
-@app.route('/favorite/planet/<int:planet_id>', methods=['POST'])
-def add_favorite_planet(planet_id):
-    try:
-        #need to simulate an user as currently there is no users created or logging 
-        user_id = 1 
+    return jsonify({"message": "Favorite added successfully"}), 201
 
-        planet = Planet.query.get(planet_id)
-        if not planet:
-            return jsonify({"error": "Planet not found"}), 404
 
-        existing = Favorite.query.filter_by(user_id=user_id, favorite_id=planet_id, favorite_type='planet').first()
-        if existing:
-            return jsonify({"message": "Planet already in favorites"}), 400
+@app.route('/users/<int:user_id>/favorites', methods=['DELETE'])
+def delete_favorite(user_id):
+    user = db.session.get(User, user_id)
+    if not user:
+        return jsonify({"error": "User not found"}), 404
 
-        favorite = Favorite(
-            user_id=user_id,
-            favorite_id=planet_id,
-            favorite_type='planet'
-        )
-        db.session.add(favorite)
-        db.session.commit()
+    data = request.get_json()
+    favorite_id = data.get('favorite_id')
+    favorite_type = data.get('favorite_type')
 
-        return jsonify({"message": "Planet added to favorites"}), 201
+    if not favorite_id or not favorite_type:
+        return jsonify({"error": "Missing favorite_id or favorite_type"}), 400
 
-    except Exception as e:
-        return jsonify({"error": "Internal Server Error", "message": str(e)}), 500
+    delete_stmt = favorites.delete().where(
+        (favorites.c.user_id == user_id) &
+        (favorites.c.favorite_id == favorite_id) &
+        (favorites.c.favorite_type == favorite_type)
+    )
+    db.session.execute(delete_stmt)
+    db.session.commit()
 
-@app.route('/favorite/people/<int:people_id>', methods=['POST'])
-def add_favorite_character(people_id):
-    try:
-        user_id = 1
-
-        person = People.query.get(people_id)
-        if not person:
-            return jsonify({"error": "Character not found"}), 404
-
-        existing = Favorite.query.filter_by(user_id=user_id, favorite_id=people_id, favorite_type='character').first()
-        if existing:
-            return jsonify({"message": "Character already in favorites"}), 400
-
-        favorite = Favorite(
-            user_id=user_id,
-            favorite_id=people_id,
-            favorite_type='character'
-        )
-        db.session.add(favorite)
-        db.session.commit()
-
-        return jsonify({"message": "Character added to favorites"}), 201
-
-    except Exception as e:
-        return jsonify({"error": "Internal Server Error", "message": str(e)}), 500
-
-@app.route('/favorite/planet/<int:planet_id>', methods=['DELETE'])
-def delete_favorite_planet(planet_id):
-    try:
-        user_id = 1  
-
-        favorite = Favorite.query.filter_by(
-            user_id=user_id,
-            favorite_id=planet_id,
-            favorite_type='planet'
-        ).first()
-
-        if not favorite:
-            return jsonify({"error": "Favorite planet not found"}), 404
-
-        db.session.delete(favorite)
-        db.session.commit()
-
-        return jsonify({"message": "Favorite planet deleted"}), 200
-
-    except Exception as e:
-        return jsonify({"error": "Internal Server Error", "message": str(e)}), 500
-
-@app.route('/favorite/people/<int:people_id>', methods=['DELETE'])
-def delete_favorite_character(people_id):
-    try:
-        user_id = 1
-
-        favorite = Favorite.query.filter_by(
-            user_id=user_id,
-            favorite_id=people_id,
-            favorite_type='character'
-        ).first()
-
-        if not favorite:
-            return jsonify({"error": "Favorite character not found"}), 404
-
-        db.session.delete(favorite)
-        db.session.commit()
-
-        return jsonify({"message": "Favorite character deleted"}), 200
-
-    except Exception as e:
-        return jsonify({"error": "Internal Server Error", "message": str(e)}), 500
+    return jsonify({"message": "Favorite deleted successfully"}), 200
 
 
 # this only runs if `$ python src/app.py` is executed

@@ -11,13 +11,27 @@ favorites = Table('favorites', db.Model.metadata,
     Column('favorite_type', String(20), nullable=False)  # "planet" or "character"
 )
 
+class Favorite:
+    def __init__(self, favorite_id, favorite_type):
+        self.favorite_id = favorite_id
+        self.favorite_type = favorite_type
+
+    def __repr__(self):
+        return f"<Favorite {self.favorite_type}:{self.favorite_id}>"
+
 class User(db.Model):
-    __tablename__ = 'user'
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    username: Mapped[str] = mapped_column(String(80), unique=True, nullable=False)
-    email: Mapped[str] = mapped_column(String(120), unique=True, nullable=False)
-    #relationships
-    favorites: Mapped[list] = relationship("Favorite", back_populates="user")
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+
+    @property
+    def favorites(self):
+        from sqlalchemy import select
+        result = db.session.execute(
+            select(favorites).where(favorites.c.user_id == self.id)
+        )
+        return [Favorite(row.favorite_id, row.favorite_type) for row in result]
+    
 
     def serialize(self):
         return {
@@ -87,21 +101,4 @@ class People(db.Model):
             "homeworld": self.homeworld_id,
             "birth_year": self.birth_year,
             "url": self.url,
-        }
-
-class Favorite(db.Model):
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    user_id: Mapped[int] = mapped_column(Integer, ForeignKey('user.id'), nullable=False)
-    favorite_id: Mapped[int] = mapped_column(Integer, nullable=False)  # ID of either a planet or character
-    favorite_type: Mapped[str] = mapped_column(String(20), nullable=False)  # "planet" or "character"
-
-    #relationships
-    user: Mapped["User"] = relationship("User", back_populates="favorites")
-
-    def serialize(self):
-        return {
-            "id": self.id,
-            "user_id": self.user_id,
-            "favorite_id": self.favorite_id,
-            "favorite_type": self.favorite_type
         }
